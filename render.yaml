@@ -1,0 +1,26 @@
+services:
+  - type: web
+    name: verdisol-agro
+    env: docker
+    plan: starter
+    repo: your-github-org/verdisol-agro
+    branch: main
+    dockerfilePath: Dockerfile
+    autoDeploy: true
+    envVars:
+      - key: APP_ENV
+        value: production
+      - key: APP_KEY
+        sync: false
+      - key: DB_CONNECTION
+        value: pgsql
+      - key: DB_HOST
+        value: your-db-host
+      - key: DB_PORT
+        value: 5432
+      - key: DB_DATABASE
+        value: verdisol
+      - key: DB_USERNAME
+        value: your-db-user
+      - key: DB_PASSWORD
+        sync: false
