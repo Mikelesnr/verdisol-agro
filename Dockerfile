@@ -29,8 +29,9 @@ ENV LOG_CHANNEL stderr
 ENV COMPOSER_ALLOW_SUPERUSER 1
 
 # Laravel setup
-RUN cd /var/www/html \
-    && cp .env.example .env \
+WORKDIR /var/www/html
+
+RUN cp .env.example .env || echo ".env already exists" \
     && composer install --no-dev --optimize-autoloader \
     && php artisan key:generate --force \
     && php artisan config:cache \
@@ -40,5 +41,5 @@ RUN cd /var/www/html \
     && chmod -R 755 storage bootstrap/cache \
     && chown -R www-data:www-data /var/www/html
 
-# Start Laravel with Nginx + PHP-FPM
+# Start Nginx + PHP-FPM
 CMD ["/start.sh"]
