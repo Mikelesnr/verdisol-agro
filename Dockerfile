@@ -8,34 +8,32 @@ COPY resources resources
 COPY vite.config.js ./
 RUN npm run build
 
-# Stage 2: Laravel backend
-FROM php:8.2-fpm-alpine
+# Stage 2: Laravel + Nginx + PHP-FPM
+FROM richarvey/nginx-php-fpm:3.1.6
 
-RUN apk add --no-cache \
-    bash curl zip unzip git \
-    libpng libjpeg-turbo libwebp libzip \
-    libxml2-dev libjpeg-turbo-dev libpng-dev libwebp-dev libzip-dev \
-    oniguruma icu icu-dev zlib-dev \
-    postgresql-dev nginx supervisor tzdata shadow \
-    && docker-php-ext-install pdo pdo_mysql mbstring zip intl xml
+# Copy Laravel app
+COPY . /var/www/html
 
-COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
+# Copy built frontend assets
+COPY --from=frontend /app/public /var/www/html/public
+COPY --from=frontend /app/resources /var/www/html/resources
 
-WORKDIR /var/www/html
-COPY . .
+# Laravel environment config
+ENV SKIP_COMPOSER 1
+ENV WEBROOT /var/www/html/public
+ENV PHP_ERRORS_STDERR 1
+ENV RUN_SCRIPTS 1
+ENV REAL_IP_HEADER 1
 
-COPY --from=frontend /app/public ./public
-COPY --from=frontend /app/resources ./resources
+ENV APP_ENV production
+ENV APP_DEBUG false
+ENV LOG_CHANNEL stderr
 
-COPY nginx/nginx.conf /etc/nginx/conf.d/default.conf
-COPY docker/supervisord.conf /etc/supervisord.conf
-
-RUN composer install --optimize-autoloader --no-dev \
+# Laravel setup
+RUN cd /var/www/html \
+    && composer install --optimize-autoloader --no-dev \
     && php artisan config:cache \
     && php artisan route:cache \
     && php artisan view:cache \
-    && chown -R www-data:www-data . \
+    && chown -R www-data:www-data /var/www/html \
     && chmod -R 755 storage bootstrap/cache
-
-EXPOSE 80
-CMD ["/usr/bin/supervisord", "-c", "/etc/supervisord.conf"]
