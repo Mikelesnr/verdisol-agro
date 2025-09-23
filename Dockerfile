@@ -31,15 +31,22 @@ ENV COMPOSER_ALLOW_SUPERUSER 1
 # Laravel setup
 WORKDIR /var/www/html
 
-RUN cp .env.example .env || echo ".env already exists" \
-    && composer install --no-dev --optimize-autoloader \
-    && php artisan key:generate --force \
+# Ensure required directories exist before Composer runs
+RUN mkdir -p bootstrap/cache storage/framework storage/logs \
+    && chmod -R 775 bootstrap/cache storage \
+    && chown -R www-data:www-data /var/www/html
+
+# Ensure .env exists
+RUN cp .env.example .env || echo ".env already exists"
+
+# Install Composer dependencies
+RUN composer install --no-dev --optimize-autoloader
+
+# Laravel bootstrapping
+RUN php artisan key:generate --force \
     && php artisan config:cache \
     && php artisan route:cache \
-    && php artisan view:cache \
-    && mkdir -p storage/framework storage/logs bootstrap/cache \
-    && chmod -R 755 storage bootstrap/cache \
-    && chown -R www-data:www-data /var/www/html
+    && php artisan view:cache
 
 # Start Nginx + PHP-FPM
 CMD ["/start.sh"]
