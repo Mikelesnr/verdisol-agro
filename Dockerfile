@@ -1,31 +1,59 @@
 # Stage 1: Build frontend assets
-FROM node:20-alpine AS frontend
+FROM node:20-slim AS frontend
 
 WORKDIR /app
-COPY package.json package-lock.json ./
-RUN npm install
+COPY package.json vite.config.js tailwind.config.js postcss.config.cjs ./
 COPY resources resources
-COPY vite.config.js ./
-RUN npm run build
+RUN npm install && npm run build
 
-# Stage 2: Laravel + Nginx + PHP-FPM
-FROM richarvey/nginx-php-fpm:3.1.6
+# Stage 2: Laravel backend
+FROM php:8.2-fpm-alpine AS backend
 
+# Install system dependencies
+RUN apk add --no-cache \
+    nginx \
+    curl \
+    zip \
+    unzip \
+    git \
+    libpng-dev \
+    libjpeg-turbo-dev \
+    libwebp-dev \
+    libxpm-dev \
+    freetype-dev \
+    oniguruma-dev \
+    icu-dev \
+    bash \
+    shadow \
+    postgresql-dev \
+    nodejs \
+    npm \
+    supervisor
+
+# Install PHP extensions
+RUN docker-php-ext-install pdo pdo_pgsql mbstring exif pcntl bcmath gd intl
+
+# Set working directory
+WORKDIR /var/www/html
+
+# Copy Laravel app
 COPY . .
 
-# Image config
-ENV SKIP_COMPOSER 1
-ENV WEBROOT /var/www/html/public
-ENV PHP_ERRORS_STDERR 1
-ENV RUN_SCRIPTS 1
-ENV REAL_IP_HEADER 1
+# ✅ Copy only the built frontend assets (public/build)
+COPY --from=frontend /app/public/build ./public/build
 
-# Laravel config
-ENV APP_ENV production
-ENV APP_DEBUG false
-ENV LOG_CHANNEL stderr
+# Install Composer
+COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
+RUN composer install --no-dev --optimize-autoloader
 
-# Allow composer to run as root
-ENV COMPOSER_ALLOW_SUPERUSER 1
+# Set permissions
+RUN chown -R www-data:www-data /var/www/html
 
-CMD ["/start.sh"]
+# Copy Nginx config
+COPY docker/nginx.conf /etc/nginx/nginx.conf
+
+# Copy Supervisor config
+COPY docker/supervisord.conf /etc/supervisord.conf
+
+EXPOSE 80
+CMD ["/usr/bin/supervisord", "-c", "/etc/supervisord.conf"]
