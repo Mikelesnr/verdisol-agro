@@ -39,8 +39,13 @@ WORKDIR /var/www/html
 # Copy Laravel app
 COPY . .
 
-# ✅ Ensure bootstrap/cache exists and is writable
-RUN mkdir -p bootstrap/cache && chmod -R 775 bootstrap/cache
+# ✅ Ensure Laravel cache and storage paths exist and are writable
+RUN mkdir -p bootstrap/cache \
+    storage/framework/views \
+    storage/framework/sessions \
+    storage/framework/cache \
+    && chmod -R 775 bootstrap/cache storage \
+    && chown -R www-data:www-data bootstrap/cache storage
 
 # ✅ Copy only the built frontend assets (public/build)
 COPY --from=frontend /app/public/build ./public/build
